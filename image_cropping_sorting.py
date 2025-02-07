@@ -3,15 +3,11 @@ import cv2
 import numpy as np
 import numpy.random as npr
 
+import Utils.helpers
 from Utils.annotation_class import Annotation
 from Utils.boundingbox_class import BoundingBox
 
 anno_file = "TrainingData/wider_face_annotations.txt"
-im_dir = "../../DATA/WIDER_train/images"
-pos_save_dir = "../../DATA/12/positive"
-part_save_dir = "../../DATA/12/part"
-neg_save_dir = '../../DATA/12/negative'
-save_dir = "../../DATA/12"
 
 annotations = []
 with open(anno_file, 'r') as f:
@@ -37,6 +33,52 @@ while i < len(lines):
 
     annotations.append(Annotation(path_name, num_faces, boxes))
 
+
+image_directory = "TrainingData/WIDER_train/images/"
+f_annotations = "Data/filtered_annotations.txt"
+f_n = open(f_annotations, "a")
+
 # Print the parsed annotations
-for anno in annotations[:5]:  # Print the first 5 entries as a sample
-    print(anno)
+index = 0
+for anno in annotations:
+    if index == 1:
+        exit()
+    image_name = anno.path_name
+    num_faces = anno.num_faces
+    bboxes = anno.boxes
+    image_path = image_directory+image_name
+    path = os.path.join(image_directory, image_name)
+    print(path)
+    if not os.path.exists(path):
+        print(f"File not found: {path}")
+    img = cv2.imread(path)
+
+    # TrainingData/WIDER_train/images/0--Parade/0_Parade_marchingband_1_625.jpg
+    height, width, channel = img.shape
+    print(height, width, channel)
+
+    negatives = 0
+    neg_save_dir = "Data/Negatives/"
+    while negatives < 50:
+        size = npr.randint(12, min(width, height) / 2)
+
+        nx = npr.randint(0, width - size)
+        ny = npr.randint(0, height - size)
+
+        nb = BoundingBox(nx, ny, size, size, False)
+
+        cropped_im = img[ny: ny + size, nx: nx + size, :]
+        resized_im = cv2.resize(cropped_im, (12, 12), interpolation=cv2.INTER_LINEAR)
+
+        for box in bboxes:
+            i = Utils.helpers.IoU(nb, box)
+            if i < 0.3:
+                save_file = os.path.join(neg_save_dir, f"{os.path.basename(image_name)}_{negatives}.jpg")
+                negatives+=1
+                cv2.imwrite(save_file, resized_im)
+                # f_n.write(f"{save_file} -1\n")  # Ensure newline for readability
+
+        f_n.close()  # Always close file after writing
+
+    index=index+1
+
