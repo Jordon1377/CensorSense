@@ -58,6 +58,7 @@ for anno in annotations:
     print(height, width, channel)
 
     negatives = 0
+    positives = 0
     neg_save_dir = "Data/Negatives/"
     while negatives < 50:
         size = npr.randint(12, min(width, height) / 2)
@@ -76,9 +77,25 @@ for anno in annotations:
                 save_file = os.path.join(neg_save_dir, f"{os.path.basename(image_name)}_{negatives}.jpg")
                 negatives+=1
                 cv2.imwrite(save_file, resized_im)
-                # f_n.write(f"{save_file} -1\n")  # Ensure newline for readability
+                f_n.write(f"{save_file} -1 {(ny, nx)}\n")  # Ensure newline for readability
 
-        f_n.close()  # Always close file after writing
+    ### POSITIVE FILTERING
+
+    for box in bboxes:
+        if max(box.w, box.h) < 20: continue
+        if box.x1 < 0 or box.x1 > width or box.y1 < 0 or box.y1 > height: continue
+
+        n = 0
+        while n < 20:
+            neg_size = npr.randint(12, min(width, height) / 2)
+
+            nx = npr.randint(min(neg_size, box.x1), width)
+            ny = npr.randint(min(neg_size, box.y1), height)
+
+
+
 
     index=index+1
 
+
+f_n.close()
