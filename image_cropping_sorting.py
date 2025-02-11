@@ -51,8 +51,8 @@ parts_save_dir = "Data/Parts/"
 # Print the parsed annotations
 index = 0
 for anno in annotations:
-    if index == 1:
-        exit()
+    #if index == 1:
+    #    exit()
     image_name = anno.path_name
     num_faces = anno.num_faces
     bboxes = anno.boxes
@@ -70,7 +70,12 @@ for anno in annotations:
     negatives = 0
     positives = 0
     parts = 0
-    while negatives < 50:
+    depthLimit = 10000
+    counter = 0
+    while negatives < 30:
+        counter+=1
+        if(depthLimit < counter):
+            break
         size = npr.randint(12, min(width, height) / 2)
 
         nx = npr.randint(0, width - size)
@@ -98,7 +103,11 @@ for anno in annotations:
         if box.x1 < 0 or box.x1 > width or box.y1 < 0 or box.y1 > height: continue
 
         n = 0
+        positiveCounter = 0
         while positives < 20 or n < 5:
+            positiveCounter+=1
+            if(depthLimit < positiveCounter):
+                break
 
             if n < 5:
                 neg_size = npr.randint(12, int(2 * max(box.w, box.h))) #play with size here
@@ -110,11 +119,14 @@ for anno in annotations:
                 y1pos = box.y1 + y_offset
                 y2pos = box.y1 + y_offset + neg_size
 
-                if x2pos > width or y2pos > height or y2pos < 0 or x2pos < 0:
+                if x2pos > width or y2pos > height or y1pos < 0 or x1pos < 0:
                     continue
                 nb = BoundingBox(x1pos, y1pos, neg_size, neg_size, False)
 
                 cropped_im = img[y1pos: y2pos, x1pos: x2pos, :]
+                if cropped_im is None or cropped_im.size == 0:
+                    print(f"Error: Cropped image is empty at ({x1pos}, {y1pos}) to ({x2pos}, {y2pos}) + ({0}, {0}) to ({width}, {height})")
+                    continue  # Skip this iteration
                 resized_im = cv2.resize(cropped_im, (12, 12), interpolation=cv2.INTER_LINEAR)
 
                 i = Utils.helpers.IoU(nb, box)
