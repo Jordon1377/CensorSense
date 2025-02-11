@@ -26,6 +26,16 @@ def DrawBBoxManual(image_path: str):
     return image
 
 
+def DrawBBoxAuto(image, x, y, w, h):
+    # Error handling
+    if image is None:
+        raise FileNotFoundError(f"Error: Could not load image from {image_path}")
+    
+    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Draw green rectangle
+    return image
+
+
+
 # Function that outputs image to a folder
 def SaveImageToFolder(image, folder_path: str = "DataVisualization/BoundingBoxVisualization",
                       filename: str = "image.jpg"):
@@ -117,8 +127,9 @@ def Interface():
         for annotation in annotations:
             from Utils.boundingbox_class import BoundingBox
             image_path = os.path.normpath(os.path.join(folder_path, annotation.path_name))
-            image = DrawBBoxManual(image_path)
-
+            image = cv2.imread(image_path)
+            for box in annotation.boxes:
+                image = DrawBBoxAuto(image, box.x1, box.y1, box.w, box.h)
             if action == 'save':
                 SaveImageToFolder(image, save_folder, filename=f"image_{i}.jpg")
             else:
@@ -126,6 +137,8 @@ def Interface():
                     print("Press 0 for next image!")
                     OutputImageToWindow(image, "image_" + str(i))
             i += 1
+
+            
 
     print("Operation complete!")
     return
