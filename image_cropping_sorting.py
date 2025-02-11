@@ -101,15 +101,20 @@ for anno in annotations:
         while positives < 20 or n < 5:
 
             if n < 5:
-                neg_size = npr.randint(12, min(width, height) / 2)
+                neg_size = npr.randint(12, int(2 * max(box.w, box.h))) #play with size here
                 x_offset = npr.randint(-neg_size+1, box.w-1)
                 y_offset = npr.randint(-neg_size+1, box.h-1)
 
-                if x_offset + neg_size > width or y_offset + neg_size > height or y_offset < 0 or x_offset < 0:
-                    continue
-                nb = BoundingBox(x_offset, y_offset, neg_size, neg_size, False)
+                x1pos = box.x1 + x_offset
+                x2pos = box.x1 + x_offset + neg_size
+                y1pos = box.y1 + y_offset
+                y2pos = box.y1 + y_offset + neg_size
 
-                cropped_im = img[y_offset: y_offset + neg_size, x_offset: x_offset + neg_size, :]
+                if x2pos > width or y2pos > height or y2pos < 0 or x2pos < 0:
+                    continue
+                nb = BoundingBox(x1pos, y1pos, neg_size, neg_size, False)
+
+                cropped_im = img[y1pos: y2pos, x1pos: x2pos, :]
                 resized_im = cv2.resize(cropped_im, (12, 12), interpolation=cv2.INTER_LINEAR)
 
                 i = Utils.helpers.IoU(nb, box)
@@ -118,15 +123,16 @@ for anno in annotations:
                     n+=1
                     negatives+=1
                     cv2.imwrite(save_file, resized_im)
-                    f_n.write(f"{save_file} -1 {(x_offset, y_offset, neg_size)}\n")  # Ensure newline for readability
+                    f_n.write(f"{save_file} -1 {(x1pos, y1pos, neg_size)}\n")  # Ensure newline for readability
 
             if positives < 20:
-                pos_size = max(12, npr.randint(int(min(box.w, box.h) * 0.95), np.ceil(1.15 * max(box.w, box.h)))) #smaller!!!
                 if box.w < 5 or box.h < 5:
                     continue
 
-                delta_x = npr.randint(-box.w * 0.1, box.w * 0.1) #Play around with values
-                delta_y = npr.randint(-box.h * 0.1, box.h * 0.1) #Play around with values
+                pos_size = max(12, npr.randint(int(min(box.w, box.h) * 0.8), int(1.15 * max(box.w, box.h)))) #smaller!!!
+
+                delta_x = npr.randint(-box.w * 0.2, box.w * 0.2) #Play around with values
+                delta_y = npr.randint(-box.h * 0.2, box.h * 0.2) #Play around with values
 
                 nx1 = int(max(box.x1 + delta_x, 0)) #fix!
                 ny1 = int(max(box.y1 + delta_y, 0))
@@ -134,17 +140,19 @@ for anno in annotations:
                 nx2 = nx1 + pos_size
                 ny2 = ny1 + pos_size
 
-                offset_x1 = (box.x1 - nx1) / (float(pos_size)/12)
-                offset_y1 = (box.y1 - ny1) / (float(pos_size)/12)
-                offset_x2 = (box.x1 + box.w - nx2) / (float(pos_size)/12)
-                offset_y2 = (box.y1 + box.h - ny2) / (float(pos_size)/12)
-
                 if nx2 > width or ny2 > height or nx1 < 0 or ny1 < 0:
                     continue 
 
+                offset_x1 = (box.x1 - nx1) / (float(pos_size)/12)
+                offset_y1 = (box.y1 - ny1) / (float(pos_size)/12)
+                offset_x2 = (box.x1 + box.w - nx1) / (float(pos_size)/12)
+                offset_y2 = (box.y1 + box.h - ny1) / (float(pos_size)/12)
+
+
+
                 nb = BoundingBox(nx1, ny1, pos_size, pos_size, False)
 
-                cropped_im = img[ny1: ny2, nx1: ny2, :]
+                cropped_im = img[ny1: ny2, nx1: nx2, :]
                 if cropped_im is None or cropped_im.size == 0:
                     print(f"Error: Cropped image is empty at ({nx1}, {ny1}) to ({nx2}, {ny2}) + ({0}, {0}) to ({width}, {height})")
                     continue  # Skip this iteration
@@ -156,7 +164,6 @@ for anno in annotations:
                     positives+=1
                     cv2.imwrite(save_file, resized_im)
                     f_n.write(f"{save_file} 1 {(nx1, ny1, pos_size)} {offset_x1, offset_y1, offset_x2-offset_x1, offset_y2-offset_y1}\n")  # Ensure newline for readability
-
                 elif i >= 0.4:
                     save_file = os.path.join(parts_save_dir, f"{os.path.basename(image_name)}_{parts}.jpg") #Maybe do parts?
                     positives+=1
