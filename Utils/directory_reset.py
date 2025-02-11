@@ -11,6 +11,8 @@ if os.path.isdir("Data/Negatives"):
     os.mkdir("Data/Parts")
     os.mkdir("Data/Positives")
 
+    open('Data/filtered_annotations.txt', 'w').close()
+
 elif not os.path.isdir("Data/Negatives"): 
     print("Creating Data Folders!")
     os.mkdir("Data/Negatives")
