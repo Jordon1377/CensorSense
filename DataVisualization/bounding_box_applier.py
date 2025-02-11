@@ -16,10 +16,10 @@ def DrawBBoxManual(image_path: str):
         raise FileNotFoundError(f"Error: Could not load image from {image_path}")
 
     # Get bounding box coordinates from user
-    x = int(input("Enter x coordinate: ").strip())
-    y = int(input("Enter y coordinate: ").strip())
-    w = int(input("Enter width: ").strip())
-    h = int(input("Enter height: ").strip())
+    x = float(input("Enter x coordinate: ").strip())
+    y = float(input("Enter y coordinate: ").strip())
+    w = float(input("Enter width: ").strip())
+    h = float(input("Enter height: ").strip())
 
     # Apply rectangle to image
     cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Draw green rectangle
