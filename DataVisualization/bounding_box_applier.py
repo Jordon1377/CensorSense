@@ -29,7 +29,7 @@ def DrawBBoxManual(image_path: str):
 def DrawBBoxAuto(image, x, y, w, h):
     # Error handling
     if image is None:
-        raise FileNotFoundError(f"Error: Could not load image from {image_path}")
+        raise FileNotFoundError(f"Error: Could not load image from path")
     
     cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Draw green rectangle
     return image
