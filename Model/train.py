@@ -1,6 +1,7 @@
 import tensorflow as tf
 import pandas as pd
 import numpy as np
+import PIL
 import os
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
@@ -21,22 +22,49 @@ images = []
 face_classes = []
 bboxes = []
 landmarks = []
-
 data = []
-for line in lines:
+converted_bboxes = []
+for idx, line in enumerate(lines):
+    if idx> 50:
+        break
     parts = line.strip().split()
     image_path = parts[0]
-    face_class = int(parts[1])
-    bbox = tuple(map(int, parts[2].strip('()').split(',')))
-    landmarks = None
-    if len(parts) > 3:  # Check if landmarks are present
-        landmarks = tuple(map(float, parts[3].strip('()').split(',')))
-    data.append((image_path, face_class, bbox, landmarks))
+    
+    # Load image and append
+    try:
+        image = load_and_preprocess_image(image_path)
+        images.append(image)  # Append actual image data, not just paths
+    except Exception as e:
+        print(f"Error loading {image_path}: {e}")
+        continue  # Skip corrupted images
+    
+    face_class = 1 if int(parts[1]) >= 0 else 0
+    face_classes.append(face_class)
+    
+    # Process bbox
+    try:
+        bbox = tuple(map(float, filter(None, parts[2].strip('()').replace(" ", "").split(','))))
+    except ValueError:
+        bbox = ()  # Handle missing bbox gracefully
+    bboxes.append(bbox)
 
-images = np.array(images)
-face_classes = np.array(face_classes)
-bboxes = np.array(bboxes)
-landmarks = np.array(landmarks)
+    # Process landmarks if available
+    if len(parts) > 3:
+        try:
+            landmark = tuple(map(float, filter(None, parts[3].strip('()').replace(" ", "").split(','))))
+        except ValueError:
+            landmark = ()
+        landmarks.append(landmark)
+    else:
+        landmarks.append(())  # Ensure consistent array lengths
+
+images = np.array(images, dtype=np.float32)
+face_classes = np.array(face_classes, dtype=np.int32)
+# Convert lists of tuples to numpy arrays, ensuring they are float32 and properly shaped
+bboxes = np.array([list(b) if b else [0, 0, 0, 0] for b in bboxes], dtype=np.float32)
+landmarks = np.array([list(l) if l else [0]*10 for l in landmarks], dtype=np.float32)
+
+print("Made lists")
 
 X_train, X_val, y_train_face, y_val_face, y_train_bbox, y_val_bbox, y_train_landmark, y_val_landmark = train_test_split(
     images, face_classes, bboxes, landmarks, test_size=0.2, random_state=42)
@@ -44,22 +72,29 @@ X_train, X_val, y_train_face, y_val_face, y_train_bbox, y_val_bbox, y_train_land
 train_dataset = tf.data.Dataset.from_tensor_slices((X_train, (y_train_face, y_train_bbox, y_train_landmark)))
 val_dataset = tf.data.Dataset.from_tensor_slices((X_val, (y_val_face, y_val_bbox, y_val_landmark)))
 
+print("Made Datasets")
+
 batch_size = 32
 train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
 val_dataset = val_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+print("Made Batch")
 
 pnet_model = create_pnet()
 pnet_model.compile(optimizer='adam',
                    loss={
                        'face_class': 'sparse_categorical_crossentropy',
-                       'bbox_reg': 'mean_squared_error',
-                       'landmark_reg': 'mean_squared_error'
+                       'conv4-2': 'mean_squared_error',  # Match output layer names
+                       'conv4-3': 'mean_squared_error'   # Match output layer names
                    },
                    metrics={
                        'face_class': 'accuracy',
-                       'bbox_reg': 'mse',
-                       'landmark_reg': 'mse'
+                       'conv4-2': 'mse',
+                       'conv4-3': 'mse'
                    })
+
+
+print("Starting training arc!")
 
 history = pnet_model.fit(train_dataset,
                          validation_data=val_dataset,
