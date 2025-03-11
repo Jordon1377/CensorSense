@@ -84,19 +84,41 @@ pnet_model = create_pnet()
 pnet_model.compile(optimizer='adam',
                    loss={
                        'face_class': 'sparse_categorical_crossentropy',
-                       'conv4-2': 'mean_squared_error',  # Match output layer names
-                       'conv4-3': 'mean_squared_error'   # Match output layer names
+                       'bbox_reg_reshaped': 'mean_squared_error',
+                       'landmark_reg_reshaped': 'mean_squared_error'
                    },
                    metrics={
                        'face_class': 'accuracy',
-                       'conv4-2': 'mse',
-                       'conv4-3': 'mse'
+                       'bbox_reg_reshaped': 'mse',
+                       'landmark_reg_reshaped': 'mse'
                    })
 
+pnet_model.summary()
 
 print("Starting training arc!")
 
 history = pnet_model.fit(train_dataset,
                          validation_data=val_dataset,
-                         epochs=10,
-                         verbose=1)
+                         epochs=100,
+                         verbose=2)
+
+pnet_model.save('Model/model.h5')
+
+# Load a test image
+def preprocess_test_image(image_path, target_size=(12, 12)):
+    image = load_img(image_path, target_size=target_size)
+    image = img_to_array(image) / 255.0  # Normalize
+    image = np.expand_dims(image, axis=0)  # Add batch dimension
+    return image
+
+test_image_path = 'Data/Parts/0_Parade_marchingband_1_5.jpg_6.jpg' 
+test_image = preprocess_test_image(test_image_path)
+
+# Make a prediction
+face_pred, bbox_pred, landmark_pred = pnet_model.predict(test_image)
+
+print("Face classification prediction:", face_pred)
+print("Bounding box prediction:", bbox_pred)
+print("Landmark prediction:", landmark_pred)
+
+
