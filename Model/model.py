@@ -18,9 +18,9 @@ def create_pnet(input_shape=(12, 12, 3)):
     x = tf.keras.layers.PReLU(shared_axes=[1, 2], name='PReLU3')(x)
     
     # Face classification branch
-    face_class = tf.keras.layers.Conv2D(2, (1, 1), strides=1, padding='valid', name='conv4-1')(x)
-    face_class = tf.keras.layers.Reshape((2,), name="face_class_reshaped")(face_class)
-    face_class = tf.keras.layers.Softmax(name='face_class')(face_class)
+    face_class = tf.keras.layers.Conv2D(1, (1, 1), strides=1, padding='valid', name='conv4-1')(x)
+    face_class = tf.keras.layers.Reshape((1,), name="face_class_reshaped")(face_class)
+    face_class = tf.keras.layers.Activation('sigmoid', name='face_class')(face_class)
     
     # Bounding box regression branch
     bbox_reg = tf.keras.layers.Conv2D(4, (1, 1), strides=1, padding='valid', name='conv4-2')(x)

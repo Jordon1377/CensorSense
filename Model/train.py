@@ -18,22 +18,17 @@ def load_and_preprocess_image(image_path, target_size=(12, 12)):
     image = img_to_array(image) / 255.0  # Normalize to [0, 1]
     return image
 
-images = []
-face_classes = []
-bboxes = []
-landmarks = []
-data = []
-converted_bboxes = []
+images, face_classes, bboxes, landmarks = [], [], [], []
+
 for idx, line in enumerate(lines):
-    if idx> 50:
+    if idx > 50:
         break
     parts = line.strip().split()
     image_path = parts[0]
     
-    # Load image and append
     try:
         image = load_and_preprocess_image(image_path)
-        images.append(image)  # Append actual image data, not just paths
+        images.append(image)
     except Exception as e:
         print(f"Error loading {image_path}: {e}")
         continue  # Skip corrupted images
@@ -41,22 +36,20 @@ for idx, line in enumerate(lines):
     face_class = 1 if int(parts[1]) >= 0 else 0
     face_classes.append(face_class)
     
-    # Process bbox
     try:
-        bbox = tuple(map(float, filter(None, parts[2].strip('()').replace(" ", "").split(','))))
-    except ValueError:
-        bbox = ()  # Handle missing bbox gracefully
+        bbox = tuple(map(float, parts[3].strip('()').replace(" ", "").split(',')))
+    except (ValueError, IndexError):
+        bbox = (0, 0, 0, 0)  # Default bbox if parsing fails
     bboxes.append(bbox)
-
-    # Process landmarks if available
-    if len(parts) > 3:
+    
+    if len(parts) > 4:
         try:
-            landmark = tuple(map(float, filter(None, parts[3].strip('()').replace(" ", "").split(','))))
+            landmark = tuple(map(float, parts[4].strip('()').replace(" ", "").split(',')))
         except ValueError:
-            landmark = ()
+            landmark = (0,)*10
         landmarks.append(landmark)
     else:
-        landmarks.append(())  # Ensure consistent array lengths
+        landmarks.append((0,)*10)
 
 images = np.array(images, dtype=np.float32)
 face_classes = np.array(face_classes, dtype=np.int32)
@@ -83,7 +76,7 @@ print("Made Batch")
 pnet_model = create_pnet()
 pnet_model.compile(optimizer='adam',
                    loss={
-                       'face_class': 'sparse_categorical_crossentropy',
+                       'face_class': 'binary_crossentropy',
                        'bbox_reg_reshaped': 'mean_squared_error',
                        'landmark_reg_reshaped': 'mean_squared_error'
                    },
