@@ -41,9 +41,9 @@ while i < len(lines):
         continue
     annotations.append(path_name)
 
-model = keras.models.load_model('Model/model.h5')
+model = tf.keras.models.load_model('Model/model.h5')
 
-print(model.summary())
+#print(model.summary())
 
 anno_sample = random.choice(annotations)
 anno_sample = "TrainingData/WIDER_train/images/"+anno_sample
@@ -58,15 +58,38 @@ image_pyra = image_scaler(image_sample, scaleFactor=0.5)
 crops = []
 for im in image_pyra:
     h, w = im.image.shape[:2]
-    if h > 100 or w > 100:
+    if h > 50 or w > 50:
         continue
     crops.extend(slide_window(im.image, im.current_scale, 4))
 
+predicted_Image = image_sample.copy()
+
+print("Crops total: " + str(len(crops)))
 printed = False
 for c in crops:
-    c = np.expand_dims(c.image, axis=0)
-    output = model.predict(c)
+    reformated_image = np.expand_dims(c.image, axis=0)
+    output = model.predict(reformated_image)
+    face_pred, bbox_pred, landmark_pred = output
     if not printed:
-        print(output)
-        printed = True
+        print("Face classification prediction:", face_pred[0][0], face_pred[0][1])
+        print("Bounding box prediction:", bbox_pred[0][0], bbox_pred[0][1], bbox_pred[0][2], bbox_pred[0][3])
+        #print("Landmark prediction:", landmark_pred)
+        #printed = True
+
+    #If prediction is over x add box to predicted_image
+    if face_pred[0][0] > 0.5 and face_pred[0][1] > 0.5:
+        xPos1 = int(bbox_pred[0][0] / c.scale)
+        yPos1 = int(bbox_pred[0][1] / c.scale)
+        w = int((bbox_pred[0][2]) / c.scale)
+        h = int((bbox_pred[0][3]) / c.scale)
+
+        predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
+    
+cv2.imshow("Image with Box", predicted_Image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+    
+    
+
 

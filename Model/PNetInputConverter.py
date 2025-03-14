@@ -96,10 +96,10 @@ def process_image_and_save(pyramid, maxheight=300, maxwidth=300):
         height, width = image.image.shape[:2]
         if height > maxheight or width > maxwidth:
             continue
-        all_crops.extend(slide_window(image.image, 1.0, step=4))
+        all_crops.extend(slide_window(image.image, image.current_scale, step=4))
     save_images_to_folder(all_crops, output_folder_crops, "crop")
     
     print(f"Total crops saved: {len(all_crops)}")
 
-imagePyramidToFile()
+#imagePyramidToFile()
 
