@@ -41,7 +41,7 @@ while i < len(lines):
         continue
     annotations.append(path_name)
 
-model = tf.keras.models.load_model('Model/model.h5')
+model = tf.keras.models.load_model('Model/model.h5', compile=False)
 
 #print(model.summary())
 
@@ -58,7 +58,7 @@ image_pyra = image_scaler(image_sample, scaleFactor=0.5)
 crops = []
 for im in image_pyra:
     h, w = im.image.shape[:2]
-    if h > 50 or w > 50:
+    if h > 75 or w > 75:
         continue
     crops.extend(slide_window(im.image, im.current_scale, 4))
 
@@ -67,21 +67,28 @@ predicted_Image = image_sample.copy()
 print("Crops total: " + str(len(crops)))
 printed = False
 for c in crops:
-    reformated_image = np.expand_dims(c.image, axis=0)
+    reformated_image = img_to_array(c.image) / 255.0  # Normalize
+    reformated_image = np.expand_dims(reformated_image, axis=0)
     output = model.predict(reformated_image)
     face_pred, bbox_pred, landmark_pred = output
     if not printed:
-        print("Face classification prediction:", face_pred[0][0], face_pred[0][1])
+        print("Face classification prediction:", face_pred[0][0])
         print("Bounding box prediction:", bbox_pred[0][0], bbox_pred[0][1], bbox_pred[0][2], bbox_pred[0][3])
         #print("Landmark prediction:", landmark_pred)
         #printed = True
 
     #If prediction is over x add box to predicted_image
-    if face_pred[0][0] > 0.5 and face_pred[0][1] > 0.5:
-        xPos1 = int(bbox_pred[0][0] / c.scale)
-        yPos1 = int(bbox_pred[0][1] / c.scale)
-        w = int((bbox_pred[0][2]) / c.scale)
-        h = int((bbox_pred[0][3]) / c.scale)
+    if face_pred[0][0] > 0.4:
+        # xPos1 = int((c.x + bbox_pred[0][0]) / c.scale)
+        # yPos1 = int((c.y + bbox_pred[0][1]) / c.scale)
+        # w = int((bbox_pred[0][2]*12) / c.scale)
+        # h = int((bbox_pred[0][3]*12) / c.scale)
+
+        xPos1 = int((c.x) / c.scale)
+        yPos1 = int((c.y) / c.scale)
+        w = int(12 / c.scale)
+        h = int(12 / c.scale)
+        
 
         predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
     
