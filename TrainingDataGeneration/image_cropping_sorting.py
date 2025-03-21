@@ -2,7 +2,8 @@ import os
 import cv2
 import numpy as np
 import numpy.random as npr
-
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import Utils.helpers
 from Utils.annotation_class import Annotation
 from Utils.boundingbox_class import BoundingBox

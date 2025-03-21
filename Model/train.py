@@ -2,77 +2,89 @@ import tensorflow as tf
 import sys
 import pandas as pd
 import numpy as np
-import PIL
+import cv2
 import os
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from model import create_pnet
 
-
-with open('Data/filtered_annotations.txt', 'r') as file:
-    lines = file.readlines()
+from collections import deque
 
 #Leave as Positives for testing for now
 image_folder = '\Data\Positives'
 
-def load_and_preprocess_image(image_path, target_size=(12, 12)):
-    image = load_img(image_path, target_size=target_size)
-    image = img_to_array(image) / 255.0  # Normalize to [0, 1]
+# def load_and_preprocess_image(image_path, target_size=(12, 12)):
+#     image = load_img(image_path, target_size=target_size)
+#     image = img_to_array(image) / 255.0  # Normalize to [0, 1]
+#     reformated_image = np.expand_dims(reformated_image, axis=0)
+#     return image
+
+def load_and_preprocess_image_cv2(image_path, target_size=(12, 12), normalize=True):
+    # Load image using OpenCV (BGR format by default)
+    image = cv2.imread(image_path)
+    
+    # Resize the image to the target size (if necessary)
+    image = cv2.resize(image, target_size)
+    
+    # Convert image to RGB (because OpenCV loads images as BGR)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    
+    # Normalize image to [0, 1] by dividing by 255 (only if required)
+    if normalize:
+        image = image.astype(np.float32) / 255.0
+    
     return image
 
-images, face_classes, bboxes, landmarks = [], [], [], []
+def generate_batch(batch_size=64):
+    images, face_classes, bboxes, landmarks = [], [], [], []
 
-for idx, line in enumerate(lines):
-    parts = line.strip().split()
-    image_path = parts[0]
-    
-    try:
-        image = load_and_preprocess_image(image_path)
-        images.append(image)
-    except Exception as e:
-        print(f"Error loading {image_path}: {e}")
-        continue  # Skip corrupted images
-    
-    face_class = 1 if int(parts[1]) >= 0 else 0
-    face_classes.append(face_class)
-    
-    try:
-        bbox = tuple(map(float, parts[3].strip('()').replace(" ", "").split(',')))
-    except (ValueError, IndexError):
-        bbox = (0, 0, 0, 0)  # Default bbox if parsing fails
-    bboxes.append(bbox)
-    
-    if len(parts) > 4:
-        try:
-            landmark = tuple(map(float, parts[4].strip('()').replace(" ", "").split(',')))
-        except ValueError:
-            landmark = (0,)*10
-        landmarks.append(landmark)
-    else:
-        landmarks.append((0,)*10)
+    # Check if there are enough lines in the queue to form a batch
+    for _ in range(batch_size):
+        if lines_queue:  # Make sure there are still lines in the queue
+            line = lines_queue.popleft()  # Pop the first line from the queue
+            parts = line.strip().split()
+            image_path = parts[0]
 
-images = np.array(images, dtype=np.float32)
-print("Total Training size: " + len(images), flush=True)
-face_classes = np.array(face_classes, dtype=np.int32)
-# Convert lists of tuples to numpy arrays, ensuring they are float32 and properly shaped
-bboxes = np.array([list(b) if b else [0, 0, 0, 0] for b in bboxes], dtype=np.float32)
-landmarks = np.array([list(l) if l else [0]*10 for l in landmarks], dtype=np.float32)
+            try:
+                # Preprocess the image
+                image = load_and_preprocess_image_cv2(image_path)
+                images.append(image)
+            except Exception as e:
+                print(f"Error loading {image_path}: {e}")
+                continue  # Skip corrupted images
 
-print("Made lists", flush=True)
+            # Classify face presence
+            face_class = 1 if int(parts[1]) >= 0 else 0
+            face_classes.append(face_class)
 
-X_train, X_val, y_train_face, y_val_face, y_train_bbox, y_val_bbox, y_train_landmark, y_val_landmark = train_test_split(
-    images, face_classes, bboxes, landmarks, test_size=0.2, random_state=42)
+            try:
+                # Extract bounding box info (x1, y1, width, height)
+                bbox = tuple(map(float, parts[3].strip('()').replace(" ", "").split(',')))
+            except (ValueError, IndexError):
+                bbox = (0, 0, 0, 0)  # Default bbox if parsing fails
+            bboxes.append(bbox)
 
-train_dataset = tf.data.Dataset.from_tensor_slices((X_train, (y_train_face, y_train_bbox, y_train_landmark)))
-val_dataset = tf.data.Dataset.from_tensor_slices((X_val, (y_val_face, y_val_bbox, y_val_landmark)))
+            if len(parts) > 4:
+                try:
+                    # Extract landmark info (10 values)
+                    landmark = tuple(map(float, parts[4].strip('()').replace(" ", "").split(',')))
+                    # Ensure landmarks have exactly 10 points
+                    landmark = landmark + (0,) * (10 - len(landmark))  # Padding if less than 10 landmarks
+                except ValueError:
+                    landmark = (0,) * 10  # Default to 10 zeros in case of failure
+                landmarks.append(landmark)
+            else:
+                landmarks.append((0,) * 10)  # Default landmarks if missing
 
-print("Made Datasets", flush=True)
+    # Convert lists to numpy arrays, ensuring the correct data type
+    images = np.array(images, dtype=np.float32)
+    face_classes = np.array(face_classes, dtype=np.int32)
+    bboxes = np.array([list(b) if b else [0, 0, 0, 0] for b in bboxes], dtype=np.float32)
+    landmarks = np.array([list(l) if l else [0] * 10 for l in landmarks], dtype=np.float32)
 
-batch_size = 32
-train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-val_dataset = val_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    print(f"Created batch with {len(images)} samples.", flush=True)
+    return images, face_classes, bboxes, landmarks
 
-print("Made Batch", flush=True)
 
 pnet_model = create_pnet()
 
@@ -89,22 +101,57 @@ pnet_model.compile(optimizer='adam',
                        'landmark_reg_reshaped': 'mean_squared_error'
                    }, 
                    #Added params
-                   loss_weights=loss_weights,
-                   metrics=['accuracy'])
-                #    metrics={
-                #        'face_class': 'accuracy',
-                #        'bbox_reg_reshaped': 'mse',
-                #        'landmark_reg_reshaped': 'mse'
-                #    })
+                   #loss_weights=loss_weights,
+                   #metrics=['accuracy'])
+                   metrics={
+                       'face_class': 'accuracy',
+                       'bbox_reg_reshaped': 'mse',
+                       'landmark_reg_reshaped': 'mse'
+                   })
 
 pnet_model.summary()
 
 print("Starting training arc!", flush=True)
 
-history = pnet_model.fit(train_dataset,
-                         validation_data=val_dataset,
-                         epochs=1,
-                         verbose=2)
+batch_size = 64
+epochs = 1
+
+for epoch in range(epochs):
+    # Load all lines from the file into a queue (deque for efficiency)
+    lines_queue = deque()
+
+    # Read the file and fill the queue
+    with open('Data/filtered_annotations.txt', 'r') as file:
+        lines_queue.extend(file.readlines())
+    print(f"Epoch {epoch + 1}/{epochs}")
+    #np.random.shuffle(lines_queue)  # Shuffle the dataset for randomness in training
+    #print(f"Epoch {epoch + 1}/{epochs}")
+
+    total_batches = len(lines_queue) // batch_size  # Calculate the total number of batches for the epoch
+    batch_count = 0  # Initialize the batch counter
+    
+    # Continue until the queue is empty
+    while lines_queue:  # Continue until the queue is empty
+        images_batch, face_classes_batch, bboxes_batch, landmarks_batch = generate_batch(batch_size)
+        
+        # Now, you can use these batches in training
+        loss_values = pnet_model.train_on_batch(images_batch, 
+                                  {'face_class': face_classes_batch, 
+                                   'bbox_reg_reshaped': bboxes_batch, 
+                                   'landmark_reg_reshaped': landmarks_batch})
+        batch_count += 1
+        # Print progress for the current batch
+        print(f"Epoch {epoch + 1}/{epochs} - Batch {batch_count + 1}/{total_batches} - "
+              f"Loss (Face Class): {loss_values[0]:.4f}, "
+              f"Loss (BBox): {loss_values[1]:.4f}, "
+              f"Loss (Landmarks): {loss_values[2]:.4f}, "
+              f"Accuracy (Face Class): {loss_values[3]:.4f}, "
+              f"MSE (BBox): {loss_values[4]:.4f}, "
+              f"MSE (Landmarks): {loss_values[5]:.4f}")
+
+    print(f"Epoch {epoch + 1} completed.")
+
+# Save the model
 
 pnet_model.save('Model/model.h5')
 
