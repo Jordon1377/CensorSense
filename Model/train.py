@@ -7,6 +7,7 @@ import os
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from model import create_pnet
+import re
 
 from collections import deque
 
@@ -42,7 +43,12 @@ def generate_batch(batch_size=64):
     for _ in range(batch_size):
         if lines_queue:  # Make sure there are still lines in the queue
             line = lines_queue.popleft()  # Pop the first line from the queue
-            parts = line.strip().split()
+            #print("line: " + line)
+            pattern = r'\([^)]*\)|\S+'
+    
+            # Find all parts that match the pattern (either inside parentheses or other space-separated parts)
+            parts = re.findall(pattern, line)
+            #print(parts)
             image_path = parts[0]
 
             try:
@@ -55,11 +61,17 @@ def generate_batch(batch_size=64):
 
             # Classify face presence
             face_class = 1 if int(parts[1]) >= 0 else 0
+            #print(face_class)
             face_classes.append(face_class)
 
             try:
                 # Extract bounding box info (x1, y1, width, height)
-                bbox = tuple(map(float, parts[3].strip('()').replace(" ", "").split(',')))
+                if(face_class == 0):
+                    bbox = (0, 0, 0, 0)
+                    #print(bbox)
+                else: 
+                    bbox = tuple(map(float, parts[3].strip('()').replace(" ", "").split(',')))
+                    #print(bbox)
             except (ValueError, IndexError):
                 bbox = (0, 0, 0, 0)  # Default bbox if parsing fails
             bboxes.append(bbox)
@@ -68,6 +80,7 @@ def generate_batch(batch_size=64):
                 try:
                     # Extract landmark info (10 values)
                     landmark = tuple(map(float, parts[4].strip('()').replace(" ", "").split(',')))
+                    print(landmark)
                     # Ensure landmarks have exactly 10 points
                     landmark = landmark + (0,) * (10 - len(landmark))  # Padding if less than 10 landmarks
                 except ValueError:
@@ -113,7 +126,7 @@ pnet_model.summary()
 
 print("Starting training arc!", flush=True)
 
-batch_size = 64
+batch_size = 256
 epochs = 1
 
 for epoch in range(epochs):
@@ -122,7 +135,9 @@ for epoch in range(epochs):
 
     # Read the file and fill the queue
     with open('Data/filtered_annotations.txt', 'r') as file:
-        lines_queue.extend(file.readlines())
+        # lines_queue.extend(file.readlines())
+        lines = file.readlines()  # Read all lines
+        lines_queue.extend(lines[:300000])  # Take only the first x lines
     print(f"Epoch {epoch + 1}/{epochs}")
     #np.random.shuffle(lines_queue)  # Shuffle the dataset for randomness in training
     #print(f"Epoch {epoch + 1}/{epochs}")
@@ -140,14 +155,10 @@ for epoch in range(epochs):
                                    'bbox_reg_reshaped': bboxes_batch, 
                                    'landmark_reg_reshaped': landmarks_batch})
         batch_count += 1
+
         # Print progress for the current batch
-        print(f"Epoch {epoch + 1}/{epochs} - Batch {batch_count + 1}/{total_batches} - "
-              f"Loss (Face Class): {loss_values[0]:.4f}, "
-              f"Loss (BBox): {loss_values[1]:.4f}, "
-              f"Loss (Landmarks): {loss_values[2]:.4f}, "
-              f"Accuracy (Face Class): {loss_values[3]:.4f}, "
-              f"MSE (BBox): {loss_values[4]:.4f}, "
-              f"MSE (Landmarks): {loss_values[5]:.4f}")
+        print(f"Epoch {epoch + 1}/{epochs} - Batch {batch_count + 1}/{total_batches}")
+        print(loss_values)
 
     print(f"Epoch {epoch + 1} completed.")
 

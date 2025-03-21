@@ -92,8 +92,11 @@ for c in crops:
         #printed = True
 
     #If prediction is over x add box to predicted_image
-    if face_pred[0][0] > 0.5:
+    if face_pred[0][0] > 0.1:
+        print("Face prediction:", face_pred[0][0])
         print("Bounding box prediction:", bbox_pred[0][0], bbox_pred[0][1], bbox_pred[0][2], bbox_pred[0][3])
+
+        tmp = predicted_Image.copy()
         #xPos1 = int((c.x) + (bbox_pred[0][0] / c.scale))
         #yPos1 = int((c.y) + (bbox_pred[0][1] / c.scale))
         xPos1 = int((c.x + bbox_pred[0][0]) / c.scale)
@@ -109,6 +112,11 @@ for c in crops:
         h = int(12 / c.scale)
 
         predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
+
+        cv2.imshow("Image with Box", predicted_Image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        predicted_Image = tmp
         
     
 cv2.imshow("Image with Box", predicted_Image)
