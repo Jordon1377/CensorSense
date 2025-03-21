@@ -7,6 +7,7 @@ import os
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from model import create_pnet
+import time
 
 
 with open('Data/filtered_annotations.txt', 'r') as file:
@@ -23,6 +24,8 @@ def load_and_preprocess_image(image_path, target_size=(12, 12)):
 images, face_classes, bboxes, landmarks = [], [], [], []
 
 for idx, line in enumerate(lines):
+    if idx > 25000:
+        break
     parts = line.strip().split()
     image_path = parts[0]
     
@@ -30,7 +33,6 @@ for idx, line in enumerate(lines):
         image = load_and_preprocess_image(image_path)
         images.append(image)
     except Exception as e:
-        print(f"Error loading {image_path}: {e}")
         continue  # Skip corrupted images
     
     face_class = 1 if int(parts[1]) >= 0 else 0
@@ -52,7 +54,7 @@ for idx, line in enumerate(lines):
         landmarks.append((0,)*10)
 
 images = np.array(images, dtype=np.float32)
-print("Total Training size: " + len(images), flush=True)
+print(f"Total Training size: {len(images)}")
 face_classes = np.array(face_classes, dtype=np.int32)
 # Convert lists of tuples to numpy arrays, ensuring they are float32 and properly shaped
 bboxes = np.array([list(b) if b else [0, 0, 0, 0] for b in bboxes], dtype=np.float32)
@@ -89,24 +91,27 @@ pnet_model.compile(optimizer='adam',
                        'landmark_reg_reshaped': 'mean_squared_error'
                    }, 
                    #Added params
-                   loss_weights=loss_weights,
-                   metrics=['accuracy'])
-                #    metrics={
-                #        'face_class': 'accuracy',
-                #        'bbox_reg_reshaped': 'mse',
-                #        'landmark_reg_reshaped': 'mse'
-                #    })
+                #    loss_weights=loss_weights,
+                #    metrics=['accuracy'])
+                   metrics={
+                       'face_class': 'accuracy',
+                       'bbox_reg_reshaped': 'mse',
+                       'landmark_reg_reshaped': 'mse'
+                   })
 
 pnet_model.summary()
 
+time_start = time.time()
 print("Starting training arc!", flush=True)
 
 history = pnet_model.fit(train_dataset,
                          validation_data=val_dataset,
-                         epochs=1,
+                         epochs=10,
                          verbose=2)
 
 pnet_model.save('Model/model.h5')
+end_time = time.time()
+print(f"Duration of Training: {end_time-time_start}")
 
 # Load a test image
 def preprocess_test_image(image_path, target_size=(12, 12)):
