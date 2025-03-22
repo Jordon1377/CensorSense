@@ -28,7 +28,7 @@ def slide_window(image, scale, step=3):
     for x in range(0, height - 12 + 1, step):
         for y in range(0, width - 12 + 1, step):
             crop = image[x:x+12, y:y+12]
-            crops.append(ImageCrop(crop, scale, x, y))
+            crops.append(ImageCrop(crop, scale, y, x))
     return crops
 
 #Function takes in an input image and creates various scaling pyramids of images ranging from as small as 12x12 to as large as the original size

@@ -67,7 +67,7 @@ def generate_batch(batch_size=64):
             try:
                 # Extract bounding box info (x1, y1, width, height)
                 if(face_class == 0):
-                    bbox = (0, 0, 0, 0)
+                    bbox = (0, 0, 12, 12)
                     #print(bbox)
                 else: 
                     bbox = tuple(map(float, parts[3].strip('()').replace(" ", "").split(',')))
@@ -92,7 +92,7 @@ def generate_batch(batch_size=64):
     # Convert lists to numpy arrays, ensuring the correct data type
     images = np.array(images, dtype=np.float32)
     face_classes = np.array(face_classes, dtype=np.int32)
-    bboxes = np.array([list(b) if b else [0, 0, 0, 0] for b in bboxes], dtype=np.float32)
+    bboxes = np.array([list(b) if b else [0, 0, 12, 12] for b in bboxes], dtype=np.float32)
     landmarks = np.array([list(l) if l else [0] * 10 for l in landmarks], dtype=np.float32)
 
     print(f"Created batch with {len(images)} samples.", flush=True)
@@ -106,6 +106,52 @@ loss_weights = {
     'bbox_reg_reshaped': 0.5,  # Moderate importance
     'landmark_reg_reshaped': 0.5  # Moderate importance
 }
+
+
+# def custom_loss(face_class_weight=1.0, bbox_weight=0.5, landmark_weight=0.5):
+#     """
+#     Custom loss function that adjusts the contribution of the bounding box loss
+#     based on the class of the sample (face_class).
+#     """
+    
+#     def loss(y_true, y_pred):
+#         # Extract true values from the tuple (not dictionary)
+#         face_class_true = y_true[0]  # This should correspond to the face class
+#         bbox_true = y_true[1]  # This should correspond to the bounding boxes
+#         landmark_true = y_true[2]  # This should correspond to landmarks
+        
+#         # Extract predicted values from the model's predictions
+#         face_class_pred = y_pred[0]
+#         bbox_pred = y_pred[1]
+#         landmark_pred = y_pred[2]
+        
+#         # Classification loss (binary crossentropy)
+#         face_class_loss = K.binary_crossentropy(face_class_true, face_class_pred)
+        
+#         # Bounding box loss (mean squared error) - only if the face_class is positive (1)
+#         bbox_loss = K.mean(K.square(bbox_true - bbox_pred), axis=-1)
+#         # Mask the bbox loss for negative samples (face_class == 0)
+#         bbox_loss = bbox_loss * face_class_true
+        
+#         # Landmark loss (mean squared error)
+#         landmark_loss = K.mean(K.square(landmark_true - landmark_pred), axis=-1)
+        
+#         # Apply the weights
+#         total_loss = (face_class_weight * face_class_loss +
+#                       bbox_weight * bbox_loss +
+#                       landmark_weight * landmark_loss)
+        
+#         return total_loss
+    
+#     return loss
+
+# pnet_model.compile(optimizer='adam',
+#                    loss=custom_loss(face_class_weight=1.0, bbox_weight=0.5, landmark_weight=0.5),
+#                    metrics={'face_class': 'accuracy',
+#                             'bbox_reg_reshaped': 'mse',
+#                             'landmark_reg_reshaped': 'mse'})
+
+
 
 pnet_model.compile(optimizer='adam',
                    loss={
@@ -135,9 +181,9 @@ for epoch in range(epochs):
 
     # Read the file and fill the queue
     with open('Data/filtered_annotations.txt', 'r') as file:
-        # lines_queue.extend(file.readlines())
-        lines = file.readlines()  # Read all lines
-        lines_queue.extend(lines[:300000])  # Take only the first x lines
+        lines_queue.extend(file.readlines())
+        # lines = file.readlines()  # Read all lines
+        # lines_queue.extend(lines[:200000])  # Take only the first x lines
     print(f"Epoch {epoch + 1}/{epochs}")
     #np.random.shuffle(lines_queue)  # Shuffle the dataset for randomness in training
     #print(f"Epoch {epoch + 1}/{epochs}")

@@ -63,6 +63,7 @@ for im in image_pyra:
     crops.extend(slide_window(im.image, im.current_scale, 4))
 
 predicted_Image = image_sample.copy()
+totalImage = predicted_Image.copy()
 
 def load_and_preprocess_image_cv2(image, target_size=(12, 12), normalize=True):
     # Resize the image to the target size (if necessary)
@@ -81,6 +82,7 @@ def load_and_preprocess_image_cv2(image, target_size=(12, 12), normalize=True):
 
 print("Crops total: " + str(len(crops)))
 printed = False
+
 for c in crops:
     reformated_image = load_and_preprocess_image_cv2(c.image)
     output = model.predict(reformated_image)
@@ -92,34 +94,44 @@ for c in crops:
         #printed = True
 
     #If prediction is over x add box to predicted_image
-    if face_pred[0][0] > 0.1:
+    if face_pred[0][0] > 0.5:
         print("Face prediction:", face_pred[0][0])
         print("Bounding box prediction:", bbox_pred[0][0], bbox_pred[0][1], bbox_pred[0][2], bbox_pred[0][3])
 
         tmp = predicted_Image.copy()
         #xPos1 = int((c.x) + (bbox_pred[0][0] / c.scale))
         #yPos1 = int((c.y) + (bbox_pred[0][1] / c.scale))
-        xPos1 = int((c.x + bbox_pred[0][0]) / c.scale)
-        yPos1 = int((c.y + bbox_pred[0][1]) / c.scale)
-        w = int((bbox_pred[0][2]) / c.scale)
-        h = int((bbox_pred[0][3]) / c.scale)
+        inverse_scale = 1 / c.scale  # Inverse scale to expand the coordinates
+
+        # Scale the bounding box coordinates and dimensions back to the original size
+        xPos1 = int((c.x + bbox_pred[0][0]) * inverse_scale)  # Multiply by inverse scale to get original size coordinates
+        yPos1 = int((c.y + bbox_pred[0][1]) * inverse_scale)  # Multiply by inverse scale
+        w = int(bbox_pred[0][2] * inverse_scale)  # Multiply width by inverse scale
+        h = int(bbox_pred[0][3] * inverse_scale)  # Multiply height by inverse scale
 
         predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
+        totalImage = cv2.rectangle(totalImage, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
 
-        xPos1 = int((c.x) / c.scale)
-        yPos1 = int((c.y) / c.scale)
+        xPos1 = int((c.x) * inverse_scale)
+        yPos1 = int((c.y) * inverse_scale)
         w = int(12 / c.scale)
         h = int(12 / c.scale)
 
         predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
+        #totalImage = cv2.rectangle(totalImage, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
 
         cv2.imshow("Image with Box", predicted_Image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+        resized_crop = cv2.resize(c.image, (200, 200))
+        cv2.imshow("Image with Box", c.image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        
         predicted_Image = tmp
         
     
-cv2.imshow("Image with Box", predicted_Image)
+cv2.imshow("Image with Box", totalImage)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
