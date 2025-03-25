@@ -111,49 +111,6 @@ loss_weights = {
 }
 
 
-# def custom_loss(face_class_weight=1.0, bbox_weight=0.5, landmark_weight=0.5):
-#     """
-#     Custom loss function that adjusts the contribution of the bounding box loss
-#     based on the class of the sample (face_class).
-#     """
-    
-#     def loss(y_true, y_pred):
-#         # Extract true values from the tuple (not dictionary)
-#         face_class_true = y_true[0]  # This should correspond to the face class
-#         bbox_true = y_true[1]  # This should correspond to the bounding boxes
-#         landmark_true = y_true[2]  # This should correspond to landmarks
-        
-#         # Extract predicted values from the model's predictions
-#         face_class_pred = y_pred[0]
-#         bbox_pred = y_pred[1]
-#         landmark_pred = y_pred[2]
-        
-#         # Classification loss (binary crossentropy)
-#         face_class_loss = K.binary_crossentropy(face_class_true, face_class_pred)
-        
-#         # Bounding box loss (mean squared error) - only if the face_class is positive (1)
-#         bbox_loss = K.mean(K.square(bbox_true - bbox_pred), axis=-1)
-#         # Mask the bbox loss for negative samples (face_class == 0)
-#         bbox_loss = bbox_loss * face_class_true
-        
-#         # Landmark loss (mean squared error)
-#         landmark_loss = K.mean(K.square(landmark_true - landmark_pred), axis=-1)
-        
-#         # Apply the weights
-#         total_loss = (face_class_weight * face_class_loss +
-#                       bbox_weight * bbox_loss +
-#                       landmark_weight * landmark_loss)
-        
-#         return total_loss
-    
-#     return loss
-
-# pnet_model.compile(optimizer='adam',
-#                    loss=custom_loss(face_class_weight=1.0, bbox_weight=0.5, landmark_weight=0.5),
-#                    metrics={'face_class': 'accuracy',
-#                             'bbox_reg_reshaped': 'mse',
-#                             'landmark_reg_reshaped': 'mse'})
-
 def euclidean_loss(y_true, y_pred):
     """Compute Euclidean loss only for positive samples (face_class == 1)."""
     # Extract face classification labels (assuming the first value represents the label)
@@ -168,7 +125,16 @@ def euclidean_loss(y_true, y_pred):
 
     return tf.reduce_mean(masked_loss)
 
-pnet_model.compile(optimizer='adam',
+# ✅ Dynamic learning rate scheduling
+initial_lr = 0.001
+
+# Optimizer with weight decay (AdamW)
+optimizer = tf.keras.optimizers.AdamW(
+    learning_rate=initial_lr,
+    weight_decay=1e-4  # Regularization to prevent overfitting
+)
+
+pnet_model.compile(optimizer=optimizer,
                    loss={
                        'face_class': 'binary_crossentropy',
                        'bbox_reg_reshaped': euclidean_loss,
@@ -187,8 +153,8 @@ pnet_model.summary()
 
 print("Starting training arc!", flush=True)
 
-batch_size = 256
-epochs = 1
+batch_size = 128
+epochs = 12
 
 def print_first_and_last(queue, label):
     queue_list = list(queue)
@@ -241,11 +207,11 @@ for epoch in range(epochs):
         # Print progress for the current batch
         print(f"Epoch {epoch + 1}/{epochs} - Batch {batch_count + 1}/{total_batches}")
         print(loss_values)
-        if batch_count % 1000 == 0:
-            print("Save model")
-            pnet_model.save('Model/model.h5')
 
     print(f"Epoch {epoch + 1} completed.")
+    if epoch % 2 == 0 and batch_count % 1000 == 0:
+            print("✅ Saving model checkpoint...")
+            pnet_model.save(f'Model/pnet_epoch_{epoch}_batch_{batch_count}.h5')
     
 
 # Save the model
