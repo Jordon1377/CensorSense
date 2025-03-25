@@ -7,7 +7,7 @@ def create_pnet(input_shape=(12, 12, 3)):
     # First Conv layer
     x = tf.keras.layers.Conv2D(10, (3, 3), strides=1, padding='valid', name='conv1')(inputs)
     x = tf.keras.layers.PReLU(shared_axes=[1, 2], name='PReLU1')(x)
-    x = tf.keras.layers.MaxPooling2D((2, 2), strides=2, padding='same', name='pool1')(x)
+    x = tf.keras.layers.MaxPooling2D((3, 3), strides=2, padding='same', name='pool1')(x)
     
     # Second Conv layer
     x = tf.keras.layers.Conv2D(16, (3, 3), strides=1, padding='valid', name='conv2')(x)

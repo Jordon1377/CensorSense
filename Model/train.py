@@ -154,12 +154,24 @@ loss_weights = {
 #                             'bbox_reg_reshaped': 'mse',
 #                             'landmark_reg_reshaped': 'mse'})
 
+def euclidean_loss(y_true, y_pred):
+    """Compute Euclidean loss only for positive samples (face_class == 1)."""
+    # Extract face classification labels (assuming the first value represents the label)
+    face_labels = y_true[:, 0]  # Assumes y_true format: [face_class, bbox_targets]
 
+    # Compute squared differences
+    squared_diff = tf.square(y_true - y_pred)
+
+    # Mask loss where face_labels == 1 (only positive face samples)
+    mask = tf.cast(tf.equal(face_labels, 1), tf.float32)[:, tf.newaxis]  # Expand dims for broadcasting
+    masked_loss = tf.reduce_sum(mask * squared_diff, axis=-1)
+
+    return tf.reduce_mean(masked_loss)
 
 pnet_model.compile(optimizer='adam',
                    loss={
                        'face_class': 'binary_crossentropy',
-                       'bbox_reg_reshaped': 'mean_squared_error',
+                       'bbox_reg_reshaped': euclidean_loss,
                        'landmark_reg_reshaped': 'mean_squared_error'
                    }, 
                    #Added params
