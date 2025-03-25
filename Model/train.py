@@ -11,6 +11,9 @@ import re
 
 from collections import deque
 
+import random
+from collections import deque
+
 #Leave as Positives for testing for now
 image_folder = '\Data\Positives'
 
@@ -175,6 +178,14 @@ print("Starting training arc!", flush=True)
 batch_size = 256
 epochs = 1
 
+def print_first_and_last(queue, label):
+    queue_list = list(queue)
+    print(f"\n{label}")
+    print("First 10 elements:")
+    print(queue_list[:10])
+    print("\nLast 10 elements:")
+    print(queue_list[-10:])
+
 for epoch in range(epochs):
     # Load all lines from the file into a queue (deque for efficiency)
     lines_queue = deque()
@@ -184,6 +195,19 @@ for epoch in range(epochs):
         lines_queue.extend(file.readlines())
         # lines = file.readlines()  # Read all lines
         # lines_queue.extend(lines[:200000])  # Take only the first x lines
+
+    #print_first_and_last(lines_queue, "Before Shuffling")
+
+    queue_list = list(lines_queue)
+
+    # Step 2: Shuffle the list
+    random.shuffle(queue_list)
+
+    # Step 3: Convert back to deque
+    lines_queue = deque(queue_list)
+
+    #print_first_and_last(lines_queue, "After Shuffling")
+
     print(f"Epoch {epoch + 1}/{epochs}")
     #np.random.shuffle(lines_queue)  # Shuffle the dataset for randomness in training
     #print(f"Epoch {epoch + 1}/{epochs}")
@@ -205,8 +229,12 @@ for epoch in range(epochs):
         # Print progress for the current batch
         print(f"Epoch {epoch + 1}/{epochs} - Batch {batch_count + 1}/{total_batches}")
         print(loss_values)
+        if batch_count % 1000 == 0:
+            print("Save model")
+            pnet_model.save('Model/model.h5')
 
     print(f"Epoch {epoch + 1} completed.")
+    
 
 # Save the model
 
