@@ -17,6 +17,12 @@ import cv2
 import numpy as np
 import numpy.random as npr
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
+from NMS import nms
+
+
 anno_file = "TrainingData/wider_face_annotations.txt"
 
 annotations = []
@@ -58,7 +64,7 @@ image_pyra = image_scaler(image_sample, scaleFactor=0.5)
 crops = []
 for im in image_pyra:
     h, w = im.image.shape[:2]
-    if h > 75 or w > 75:
+    if h > 250 or w > 250:
         continue
     crops.extend(slide_window(im.image, im.current_scale, 4))
 
@@ -82,6 +88,9 @@ def load_and_preprocess_image_cv2(image, target_size=(12, 12), normalize=True):
 
 print("Crops total: " + str(len(crops)))
 printed = False
+
+bboxes = []
+confidences = []
 
 for c in crops:
     reformated_image = load_and_preprocess_image_cv2(c.image)
@@ -112,6 +121,9 @@ for c in crops:
         predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
         totalImage = cv2.rectangle(totalImage, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
 
+        bboxes.append([xPos1, yPos1, xPos1+w, yPos1+h])
+        confidences.append(face_pred[0][0])
+
         xPos1 = int((c.x) * inverse_scale)
         yPos1 = int((c.y) * inverse_scale)
         w = int(12 / c.scale)
@@ -120,13 +132,13 @@ for c in crops:
         predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
         #totalImage = cv2.rectangle(totalImage, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
 
-        cv2.imshow("Image with Box", predicted_Image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        resized_crop = cv2.resize(c.image, (200, 200))
-        cv2.imshow("Image with Box", c.image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow("Image with Box", predicted_Image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        # resized_crop = cv2.resize(c.image, (200, 200))
+        # cv2.imshow("Image with Box", c.image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
         
         predicted_Image = tmp
         
@@ -135,7 +147,15 @@ cv2.imshow("Image with Box", totalImage)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
-    
+bboxes_refined = nms.nms_regression(bboxes, confidences, 0.5)
+predicted_Image = image_sample.copy()
+
+for box in bboxes_refined:
+    xPos1, yPos1, xPos2, yPos2 = map(int, box)
+    predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos2, yPos2), (0, 255, 0), 1)
+cv2.imshow("Image with Box", predicted_Image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
     
 
 
