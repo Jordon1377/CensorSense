@@ -92,44 +92,52 @@ printed = False
 bboxes = []
 confidences = []
 
-for c in crops:
-    reformated_image = load_and_preprocess_image_cv2(c.image)
-    output = model.predict(reformated_image)
+#Predict in batch is way faster!!!
+batch_images = np.array([load_and_preprocess_image_cv2(c.image) for c in crops], dtype=np.float32)
+batch_images = np.squeeze(batch_images, axis=1)  # Remove dimension at index 1
+output = model.predict(batch_images)
+
+for i in range(len(output[0])):
+
     face_pred, bbox_pred, landmark_pred = output
-    #if not printed:
-        #print("Face classification prediction:", face_pred[0][0])
-        #print("Bounding box prediction:", bbox_pred[0][0], bbox_pred[0][1], bbox_pred[0][2], bbox_pred[0][3])
-        #print("Landmark prediction:", landmark_pred)
-        #printed = True
+    face_pred = face_pred[i]
+    bbox_pred = bbox_pred[i]
+    landmark_pred = landmark_pred[i]
+    crop = crops[i]
+
+    # reformated_image = load_and_preprocess_image_cv2(c.image)
+    # output = model.predict(reformated_image)
+    # face_pred, bbox_pred, landmark_pred = output
 
     #If prediction is over x add box to predicted_image
-    if face_pred[0][0] > 0.5:
-        print("Face prediction:", face_pred[0][0])
-        print("Bounding box prediction:", bbox_pred[0][0], bbox_pred[0][1], bbox_pred[0][2], bbox_pred[0][3])
+    if face_pred[0] > 0.5:
+        
+        #print("Face prediction:", face_pred[0])
+        #print("Bounding box prediction:", bbox_pred[0], bbox_pred[1], bbox_pred[2], bbox_pred[3])
 
         tmp = predicted_Image.copy()
         #xPos1 = int((c.x) + (bbox_pred[0][0] / c.scale))
         #yPos1 = int((c.y) + (bbox_pred[0][1] / c.scale))
-        inverse_scale = 1 / c.scale  # Inverse scale to expand the coordinates
+        inverse_scale = 1 / crop.scale  # Inverse scale to expand the coordinates
 
         # Scale the bounding box coordinates and dimensions back to the original size
-        xPos1 = int((c.x + bbox_pred[0][0]) * inverse_scale)  # Multiply by inverse scale to get original size coordinates
-        yPos1 = int((c.y + bbox_pred[0][1]) * inverse_scale)  # Multiply by inverse scale
-        w = int(bbox_pred[0][2] * inverse_scale)  # Multiply width by inverse scale
-        h = int(bbox_pred[0][3] * inverse_scale)  # Multiply height by inverse scale
+        xPos1 = int((crop.x + bbox_pred[0]) * inverse_scale)  # Multiply by inverse scale to get original size coordinates
+        yPos1 = int((crop.y + bbox_pred[1]) * inverse_scale)  # Multiply by inverse scale
+        w = int(bbox_pred[2] * inverse_scale)  # Multiply width by inverse scale
+        h = int(bbox_pred[3] * inverse_scale)  # Multiply height by inverse scale
 
-        predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
+        #predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
         totalImage = cv2.rectangle(totalImage, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (0, 255, 0), 1)
 
         bboxes.append([xPos1, yPos1, xPos1+w, yPos1+h])
-        confidences.append(face_pred[0][0])
+        confidences.append(face_pred[0])
 
-        xPos1 = int((c.x) * inverse_scale)
-        yPos1 = int((c.y) * inverse_scale)
-        w = int(12 / c.scale)
-        h = int(12 / c.scale)
+        # xPos1 = int((c.x) * inverse_scale)
+        # yPos1 = int((c.y) * inverse_scale)
+        # w = int(12 / c.scale)
+        # h = int(12 / c.scale)
 
-        predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
+        # predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
         #totalImage = cv2.rectangle(totalImage, (xPos1, yPos1), (xPos1 + w, yPos1 + h), (255, 0, 0), 1)
 
         # cv2.imshow("Image with Box", predicted_Image)
