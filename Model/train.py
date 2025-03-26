@@ -16,12 +16,49 @@ from collections import deque
 
 #Leave as Positives for testing for now
 image_folder = '\Data\Positives'
+def random_brightness(image, max_delta=0.2):
+    """Randomly adjust the brightness of the image."""
+    delta = random.uniform(-max_delta, max_delta)
+    image = np.clip(image + delta, 0, 1)
+    return image
 
-# def load_and_preprocess_image(image_path, target_size=(12, 12)):
-#     image = load_img(image_path, target_size=target_size)
-#     image = img_to_array(image) / 255.0  # Normalize to [0, 1]
-#     reformated_image = np.expand_dims(reformated_image, axis=0)
-#     return image
+def random_contrast(image, lower=0.5, upper=1.5):
+    """Randomly adjust the contrast of the image."""
+    factor = random.uniform(lower, upper)
+    image = np.clip((image - 0.5) * factor + 0.5, 0, 1)
+    return image
+
+def random_gamma(image, lower=0.5, upper=1.5):
+    """Randomly adjust the gamma of the image."""
+    gamma = random.uniform(lower, upper)
+    image = np.clip(image ** gamma, 0, 1)
+    return image
+
+def random_grayscale(image, probability=0.1):
+    """Randomly convert image to grayscale with a specified probability."""
+    if random.random() < probability:
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)  # Convert back to RGB
+    return image
+
+def random_augmentation(image, untouched_prob=0.4, grayscale_prob=0.1):
+    """Apply random augmentations to the image."""
+    if random.random() < untouched_prob:
+        # No augmentation for 30-40% of the images
+        return image
+    
+    # Apply other augmentations
+    if random.random() < 0.5:
+        image = random_brightness(image)
+    if random.random() < 0.5:
+        image = random_contrast(image)
+    if random.random() < 0.5:
+        image = random_gamma(image)
+    
+    # Grayscale has a fixed probability of being applied
+    image = random_grayscale(image, probability=grayscale_prob)
+    
+    return image
 
 def load_and_preprocess_image_cv2(image_path, target_size=(12, 12), normalize=True):
     # Load image using OpenCV (BGR format by default)
@@ -57,6 +94,7 @@ def generate_batch(batch_size=64):
             try:
                 # Preprocess the image
                 image = load_and_preprocess_image_cv2(image_path)
+                image = random_augmentation(image)
                 images.append(image)
             except Exception as e:
                 print(f"Error loading {image_path}: {e}")
@@ -133,7 +171,7 @@ initial_lr = 0.0001
 # Optimizer with weight decay (AdamW)
 optimizer = tf.keras.optimizers.AdamW(
     learning_rate=initial_lr,
-    weight_decay=3e-4  # Regularization to prevent overfitting
+    weight_decay=3e-5  # Regularization to prevent overfitting
 )
 
 pnet_model.compile(optimizer=optimizer,
@@ -213,13 +251,13 @@ for epoch in range(epochs):
     print(f"Epoch {epoch + 1} completed.")
     
     print("✅ Saving model checkpoint...")
-    pnet_model.save(f'Model/Models/pnet_epoch_{epoch}.h5')
+    pnet_model.save(f'Model/DataAugmentedModels/pnet_epoch_{epoch}.h5')
     batch_size += 20
     
 
 # Save the model
 
-pnet_model.save('Model/Models/model.h5')
+pnet_model.save('Model/DataAugmentedModels/model.h5')
 
 # Load a test image
 def preprocess_test_image(image_path, target_size=(12, 12)):
