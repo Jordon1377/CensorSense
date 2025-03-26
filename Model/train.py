@@ -126,12 +126,14 @@ def euclidean_loss(y_true, y_pred):
     return tf.reduce_mean(masked_loss)
 
 # ✅ Dynamic learning rate scheduling
-initial_lr = 0.001
+initial_lr = 0.0001
+
+#optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.9)
 
 # Optimizer with weight decay (AdamW)
 optimizer = tf.keras.optimizers.AdamW(
     learning_rate=initial_lr,
-    weight_decay=1e-4  # Regularization to prevent overfitting
+    weight_decay=3e-4  # Regularization to prevent overfitting
 )
 
 pnet_model.compile(optimizer=optimizer,
@@ -153,8 +155,8 @@ pnet_model.summary()
 
 print("Starting training arc!", flush=True)
 
-batch_size = 128
-epochs = 12
+batch_size = 124
+epochs = 8
 
 def print_first_and_last(queue, label):
     queue_list = list(queue)
@@ -209,14 +211,15 @@ for epoch in range(epochs):
         print(loss_values)
 
     print(f"Epoch {epoch + 1} completed.")
-    if epoch % 2 == 0 and batch_count % 1000 == 0:
-            print("✅ Saving model checkpoint...")
-            pnet_model.save(f'Model/pnet_epoch_{epoch}_batch_{batch_count}.h5')
+    
+    print("✅ Saving model checkpoint...")
+    pnet_model.save(f'Model/Models/pnet_epoch_{epoch}.h5')
+    batch_size += 20
     
 
 # Save the model
 
-pnet_model.save('Model/model.h5')
+pnet_model.save('Model/Models/model.h5')
 
 # Load a test image
 def preprocess_test_image(image_path, target_size=(12, 12)):

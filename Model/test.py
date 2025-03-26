@@ -58,13 +58,13 @@ cv2.imshow("Original Image", image_sample)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
-image_pyra = image_scaler(image_sample, scaleFactor=0.5) 
+image_pyra = image_scaler(image_sample, scaleFactor=0.75) 
 
 
 crops = []
 for im in image_pyra:
     h, w = im.image.shape[:2]
-    if h > 250 or w > 250:
+    if h > 300 or w > 300:
         continue
     crops.extend(slide_window(im.image, im.current_scale, 4))
 
