@@ -9,7 +9,7 @@ from PNetInputConverter import image_scaler, slide_window
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from NMS import nms
 # Load the model
-model = tf.keras.models.load_model('Model/model.h5', compile=False)
+model = tf.keras.models.load_model('Model/Models/model_augmented.h5', compile=False)
 
 # Load annotations
 anno_file = "TrainingData/wider_face_annotations.txt"
@@ -129,8 +129,9 @@ with open(new_anno_file, 'a') as anno_f:
             )
             
 
-            if max_iou > 0.45:
-                saved_path = f"RNetData/Positives/{og_image_path}_{im_index}.jpg"
+            if max_iou > 0.4:
+                sanitized_path = og_image_path.replace("/", "_").replace("\\", "_")
+                saved_path = f"RNetData/Positives/{sanitized_path}_{im_index}.jpg"
                 cv2.imwrite(saved_path, crop)
 
                 w = x2 - x1
@@ -143,14 +144,16 @@ with open(new_anno_file, 'a') as anno_f:
 
                 xoffset = (best_gt_box[0] - x1) * scaledW
                 yoffset = (best_gt_box[1] - y1) * scaledH
-                woffset = (gt_w - w) * scaledW
-                hoffset = (gt_h - h) * scaledH
+                
+                woffset = (gt_w) * scaledW
+                hoffset = (gt_h) * scaledH
 
                 # Append to annotation file
                 anno_f.write(f"{saved_path} 1 ({[x1, y1, x2, y2]}) ({[xoffset, yoffset, woffset, hoffset]})\n")
             
             else:
-                saved_path = f"RNetData/Negatives/{og_image_path}_{im_index}.jpg"
+                sanitized_path = og_image_path.replace("/", "_").replace("\\", "_")
+                saved_path = f"RNetData/Negatives/{sanitized_path}_{im_index}.jpg"
                 cv2.imwrite(saved_path, crop)
 
                 # Append to annotation file
