@@ -34,5 +34,42 @@ def create_pnet(input_shape=(12, 12, 3)):
     
     return model
 
-pnet_model = create_pnet()
-pnet_model.summary()
+# pnet_model = create_pnet()
+# pnet_model.summary()
+
+import tensorflow as tf
+
+def create_rnet(input_shape=(24, 24, 3)):
+    inputs = tf.keras.Input(shape=input_shape)
+    
+    # First Conv Layer + Max Pooling
+    x = tf.keras.layers.Conv2D(28, (3, 3), strides=1, padding='valid', name='conv1')(inputs)
+    x = tf.keras.layers.PReLU(shared_axes=[1, 2], name='PReLU1')(x)
+    x = tf.keras.layers.MaxPooling2D((3, 3), strides=2, padding='same', name='pool1')(x)
+    
+    # Second Conv Layer + Max Pooling
+    x = tf.keras.layers.Conv2D(48, (3, 3), strides=1, padding='valid', name='conv2')(x)
+    x = tf.keras.layers.PReLU(shared_axes=[1, 2], name='PReLU2')(x)
+    x = tf.keras.layers.MaxPooling2D((3, 3), strides=2, padding='same', name='pool2')(x)
+    
+    # Third Conv Layer
+    x = tf.keras.layers.Conv2D(64, (2, 2), strides=1, padding='valid', name='conv3')(x)
+    x = tf.keras.layers.PReLU(shared_axes=[1, 2], name='PReLU3')(x)
+    
+    # Fully connected layer
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(128, name='fc1')(x)
+    x = tf.keras.layers.PReLU(name='PReLU4')(x)
+    
+    # Face classification branch
+    face_class = tf.keras.layers.Conv2D(1, (1, 1), strides=1, padding='valid', name='conv4-1')(x)
+    face_class = tf.keras.layers.Reshape((1,), name="face_class_reshaped")(face_class)
+    face_class = tf.keras.layers.Activation('sigmoid', name='face_class')(face_class)
+    
+    # Bounding box regression branch
+    bbox_reg = tf.keras.layers.Dense(4, name='bbox_reg')(x)
+    landmark_reg = tf.keras.layers.Dense(10, name='landmark_reg')(x)
+    
+    model = tf.keras.models.Model(inputs, [face_class, bbox_reg, landmark_reg])
+    
+    return model
