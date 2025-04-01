@@ -45,6 +45,8 @@ while i < len(lines):
 os.makedirs("RNetData/Positives", exist_ok=True)
 os.makedirs("RNetData/Negatives", exist_ok=True)
 
+random.shuffle(annotations)
+
 # IoU Calculation Function
 def calculate_iou(boxA, boxB):
     xA = max(boxA[0], boxB[0])
@@ -57,7 +59,28 @@ def calculate_iou(boxA, boxB):
     boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
     iou = interArea / float(boxAArea + boxBArea - interArea)
     
+    contained_area_ratio = interArea / boxBArea
+    contained_area_ratio2 = interArea / boxAArea
+
+    if (contained_area_ratio >= 0.8 and iou > 0.3) or (contained_area_ratio2 >= 0.8 and iou > 0.3):
+        return max(iou, 0.5)  # Ensure IoU is at least 0.4
+
     return iou
+
+def load_and_preprocess_image_cv2(image, target_size=(12, 12), normalize=True):
+    # Resize the image to the target size (if necessary)
+    image = cv2.resize(image, target_size)
+    
+    # Convert image to RGB (because OpenCV loads images as BGR)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    
+    # Normalize image to [0, 1] by dividing by 255 (only if required)
+    if normalize:
+        image = image.astype(np.float32) / 255.0
+
+    image = np.expand_dims(image, axis=0)  # shape will be (1, 12, 12, 3)
+    
+    return image
 
 im_count = 0
 # Process each Wider-Face image
@@ -80,9 +103,12 @@ with open(new_anno_file, 'a') as anno_f:
                 continue
             crops.extend(slide_window(im.image, im.current_scale, 4))
 
+        
+    
+
         # Run P-Net
-        batch_images = np.array([cv2.resize(c.image, (12, 12)) / 255.0 for c in crops], dtype=np.float32)
-        batch_images = np.expand_dims(batch_images, axis=-1)
+        batch_images = np.array([load_and_preprocess_image_cv2(c.image) for c in crops], dtype=np.float32)
+        batch_images = np.squeeze(batch_images, axis=1)  # Remove dimension at index 1
         output = model.predict(batch_images)
 
         # Extract bounding boxes
@@ -108,6 +134,19 @@ with open(new_anno_file, 'a') as anno_f:
         # Apply NMS
         bboxes_refined = nms.nms_regression(bboxes, confidences, 0.4)
 
+        predicted_Image = image_sample.copy()
+
+        for box in bboxes_refined:
+            xPos1, yPos1, xPos2, yPos2 = map(int, box)
+            predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos2, yPos2), (0, 255, 0), 1)
+
+        for box in gt_boxes:
+            xPos1, yPos1, xPos2, yPos2 = map(int, box)
+            predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos2, yPos2), (255, 0, 0), 1)
+        cv2.imshow("Image with Box", predicted_Image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
         # Compare with ground truth and save crops
         im_index = 0
         for box in bboxes_refined:
@@ -130,6 +169,7 @@ with open(new_anno_file, 'a') as anno_f:
             
 
             if max_iou > 0.4:
+                print("Saved to Positives")
                 sanitized_path = og_image_path.replace("/", "_").replace("\\", "_")
                 saved_path = f"RNetData/Positives/{sanitized_path}_{im_index}.jpg"
                 cv2.imwrite(saved_path, crop)
