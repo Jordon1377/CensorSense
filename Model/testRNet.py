@@ -48,7 +48,7 @@ while i < len(lines):
     annotations.append(path_name)
 
 model = tf.keras.models.load_model('Model/Models/model_augmented.h5', compile=False)
-model2 = tf.keras.models.load_model('Model/RNet_model.h5', compile=False)
+model2 = tf.keras.models.load_model('Model/RNetAugmentedModels/rnet_model.h5', compile=False)
 
 #print(model.summary())
 
@@ -156,10 +156,38 @@ confidences = []
 bboxSizeVals = []
 
 #Predict in batch is way faster!!!
-bboxSizeVals = np.array([(box[0],box[2], box[1], box[3]) for box in bboxes_refined])
-batch_images = np.array([load_and_preprocess_image_cv2(image_sample[box[0]:box[2], box[1]:box[3]], target_size=(24, 24)) for box in bboxes_refined], dtype=np.float32)
+bboxSizeVals = np.array([(box[0],box[1], box[2], box[3]) for box in bboxes_refined])
+
+h, w = image_sample.shape[:2]
+valid_crops = []
+
+for box in bboxes_refined:
+    x1, y1, x2, y2 = map(int, box)
+
+    # Clamp coordinates within image bounds
+    x1 = max(0, min(x1, w - 1))
+    x2 = max(0, min(x2, w))
+    y1 = max(0, min(y1, h - 1))
+    y2 = max(0, min(y2, h))
+
+    # Ensure non-zero area
+    if x2 <= x1 or y2 <= y1:
+        continue
+
+    crop = image_sample[y1:y2, x1:x2]
+
+    if crop.size == 0:
+        continue  # still empty somehow
+
+    processed = load_and_preprocess_image_cv2(crop, target_size=(24, 24))
+    valid_crops.append(processed)
+
+batch_images = np.array(valid_crops, dtype=np.float32)
+
 batch_images = np.squeeze(batch_images, axis=1)  # Remove dimension at index 1
 output = model2.predict(batch_images)
+
+print(len(output[0]))
 
 for i in range(len(output[0])):
 
@@ -176,7 +204,8 @@ for i in range(len(output[0])):
 
 
 for box in bboxes:
-    predicted_Image2 = cv2.rectangle(predicted_Image2, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 1)
+    x1, y1, x2, y2 = map(int, box)  # Make sure coordinates are integers
+    predicted_Image2 = cv2.rectangle(predicted_Image2, (x1, y1), (x2, y2), (0, 255, 0), 1)
 cv2.imshow("Image with Box", predicted_Image2)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
