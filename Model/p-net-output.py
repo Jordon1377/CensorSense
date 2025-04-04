@@ -59,8 +59,12 @@ def calculate_iou(boxA, boxB):
     boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
     iou = interArea / float(boxAArea + boxBArea - interArea)
     
-    contained_area_ratio = interArea / boxBArea
-    contained_area_ratio2 = interArea / boxAArea
+    contained_area_ratio = 0
+    contained_area_ratio2 = 0
+    if boxBArea > 0:
+        contained_area_ratio = interArea / boxBArea
+    if boxAArea > 0:
+        contained_area_ratio2 = interArea / boxAArea
 
     if (contained_area_ratio >= 0.8 and iou > 0.3) or (contained_area_ratio2 >= 0.8 and iou > 0.3):
         return max(iou, 0.5)  # Ensure IoU is at least 0.4
@@ -134,18 +138,18 @@ with open(new_anno_file, 'a') as anno_f:
         # Apply NMS
         bboxes_refined = nms.nms_regression(bboxes, confidences, 0.4)
 
-        predicted_Image = image_sample.copy()
+        # predicted_Image = image_sample.copy()
 
-        for box in bboxes_refined:
-            xPos1, yPos1, xPos2, yPos2 = map(int, box)
-            predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos2, yPos2), (0, 255, 0), 1)
+        # for box in bboxes_refined:
+        #     xPos1, yPos1, xPos2, yPos2 = map(int, box)
+        #     predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos2, yPos2), (0, 255, 0), 1)
 
-        for box in gt_boxes:
-            xPos1, yPos1, xPos2, yPos2 = map(int, box)
-            predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos2, yPos2), (255, 0, 0), 1)
-        cv2.imshow("Image with Box", predicted_Image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # for box in gt_boxes:
+        #     xPos1, yPos1, xPos2, yPos2 = map(int, box)
+        #     predicted_Image = cv2.rectangle(predicted_Image, (xPos1, yPos1), (xPos2, yPos2), (255, 0, 0), 1)
+        # cv2.imshow("Image with Box", predicted_Image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         # Compare with ground truth and save crops
         im_index = 0
@@ -169,7 +173,7 @@ with open(new_anno_file, 'a') as anno_f:
             
 
             if max_iou > 0.4:
-                print("Saved to Positives")
+                #print("Saved to Positives")
                 sanitized_path = og_image_path.replace("/", "_").replace("\\", "_")
                 saved_path = f"RNetData/Positives/{sanitized_path}_{im_index}.jpg"
                 cv2.imwrite(saved_path, crop)
