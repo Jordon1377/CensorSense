@@ -62,9 +62,7 @@ def create_rnet(input_shape=(24, 24, 3)):
     x = tf.keras.layers.PReLU(name='PReLU4')(x)
     
     # Face classification branch
-    face_class = tf.keras.layers.Conv2D(1, (1, 1), strides=1, padding='valid', name='conv4-1')(x)
-    face_class = tf.keras.layers.Reshape((1,), name="face_class_reshaped")(face_class)
-    face_class = tf.keras.layers.Activation('sigmoid', name='face_class')(face_class)
+    face_class = tf.keras.layers.Dense(1, activation='sigmoid', name='face_class')(x)
     
     # Bounding box regression branch
     bbox_reg = tf.keras.layers.Dense(4, name='bbox_reg')(x)
